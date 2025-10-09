@@ -14,9 +14,10 @@ import cv2
 import random
 # from PIL import Image
 import json
+from pathlib import Path
 
 class Scene:
-    def __init__(self, image_path: str, window_size: Tuple[int, int]):
+    def __init__(self, image_path: str, window_size: Tuple[int, int], object_name:str):
         self.image_path = image_path
         self.window_size = window_size
         self.current_view = None  # Placeholder for the current camera view
@@ -25,7 +26,8 @@ class Scene:
         self.curr_x = random.randint(0, self.width - window_size[0])
         self.curr_y = random.randint(0, self.height - window_size[1])
         self.camera_stride = 75
-        self.vis_save_dir = "visualization"
+        self.object_name = object_name
+        self.vis_save_dir = f"visualization_{Path(image_path).stem}_{object_name.replace(' ', '_')}"
         os.makedirs(self.vis_save_dir, exist_ok=True)
 
     def get_unavailable_directions(self):
@@ -61,6 +63,8 @@ class Scene:
         """
         self.current_view = self.image[self.curr_y:self.curr_y + self.window_size[1],
                                        self.curr_x:self.curr_x + self.window_size[0]]
+        self.current_view = cv2.resize(self.current_view, (256, 256), interpolation=cv2.INTER_AREA)
+        cv2.GaussianBlur(self.current_view, (5,5), 0)
         cv2.imwrite(save_path, self.current_view)
         return save_path
     
@@ -72,14 +76,15 @@ class Scene:
         cv2.rectangle(vis_image, (self.curr_x, self.curr_y),
                       (self.curr_x + self.window_size[0], self.curr_y + self.window_size[1]),
                       (0, 255, 0), 2)
+        
+        vis_image = cv2.resize(vis_image, (256, 256), interpolation=cv2.INTER_AREA)
+
         if target_object:
             cv2.putText(vis_image, f"Target: {target_object}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
-                        1, (0, 0, 255), 2, cv2.LINE_AA)
+                        0.5, (0, 0, 255), 1, cv2.LINE_AA)
         # response text
         cv2.putText(vis_image, f"Response: {text}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX,
-                    1, (0, 255, 255), 2, cv2.LINE_AA)
-        
-        cv2.resize(vis_image, (200, 200), interpolation=cv2.INTER_AREA)
+                    0.5, (0, 255, 255), 1, cv2.LINE_AA)
         
         cv2.imwrite(os.path.join(self.vis_save_dir, f"vis_view_{id}.png"), vis_image)
         # cv2.imshow("Robot Arm View", vis_image)
@@ -304,15 +309,15 @@ def main():
 
     # Set up the parameters
     api_key = os.getenv("API_KEY") # "Create a .env file and add your OpenAI API key as API_KEY"
-    target_object = "eyeglasses"
+    target_object = "a calculator"
     max_iterations = 30
     max_corrections = 5
 
     # image and window parameters
-    base_image = "images/desk1.png"
+    base_image = "images/desk2.png"
     window_size = (300, 300)
 
-    scene = Scene(base_image, window_size)
+    scene = Scene(base_image, window_size, target_object)
 
     # Initialize controller
     controller = ActivePerceptionController(api_key, target_object, max_iterations, max_corrections)
